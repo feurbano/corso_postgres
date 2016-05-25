@@ -1007,6 +1007,25 @@ Un trigger fa si che il database esegua automaticamente una particolare funzione
 * Esercizio
 Aggiornare la funzione in modo da scrivere in un campo il nome di chi ha fatto l'ultima modifica al campo
 
+### External tables
+	
+	create extension postgres_fdw;
+	
+	CREATE SERVER foreign_server
+	        FOREIGN DATA WRAPPER postgres_fdw
+	        OPTIONS (host 'localhost', port '5432', dbname 'booktown');
+	
+	CREATE USER MAPPING FOR postgres
+	        SERVER foreign_server
+	        OPTIONS (user 'postgres', password 'postgres');
+	
+	CREATE FOREIGN TABLE data.autori (
+	  id integer NOT NULL,
+	  last_name text,
+	  first_name text)
+	SERVER foreign_server
+	OPTIONS (schema_name 'public', table_name 'authors');
+
 <br>
 
 ## AMMINISTRAZIONE DEL DATABASE (09:00-15:30; 26 Maggio)
