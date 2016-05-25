@@ -304,15 +304,15 @@ Tabella generata con:
 
 Soluzione:
 
-	CREATE TABLE data.dipendenti_caramelle(
+	CREATE TABLE data.caramelle_dipendenti(
 	  dipendente_id integer,
 	  num_caramelle integer,
 	  data date,
-	  CONSTRAINT dipendenti_caramelle_pkey PRIMARY KEY (dipendente_id, data),
+	  CONSTRAINT caramelle_dipendenti_pkey PRIMARY KEY (dipendente_id, data),
 	  CONSTRAINT num_caramelle_range CHECK (num_caramelle >= 0 AND num_caramelle < 100));
 	  
-	COPY data.dipendenti_caramelle (dipendente_id,data,num_caramelle) 
-	  FROM 'C:\corso_postgres\dipendenti_caramelle.csv' WITH CSV DELIMITER ';';
+	COPY data.caramelle_dipendenti (dipendente_id,data,num_caramelle) 
+	  FROM 'C:\corso_postgres\caramelle_dipendenti.csv' WITH CSV DELIMITER ';';
 
 <br>
 
@@ -502,24 +502,24 @@ Correggere il valore scorretto:
 
 Creare una chiave esterna per il campo dipendenti_id della tabella data.caramelle_dipendenti verso la tabella data.dipendenti.
 
-	ALTER TABLE data.dipendenti_caramelle
-	  ADD CONSTRAINT dipendenti_caramelle_fkey FOREIGN KEY (dipendente_id)
+	ALTER TABLE data.caramelle_dipendenti
+	  ADD CONSTRAINT caramelle_dipendenti_fkey FOREIGN KEY (dipendente_id)
 	  REFERENCES data.dipendenti (dipendente_id) MATCH SIMPLE
 	  ON UPDATE NO ACTION ON DELETE NO ACTION;
 
 ### Viste
 
 	CREATE VIEW data.view_dipendenti_sposati AS
-	  SELECT * FROM data.dipendenti WHERE sposati;
+	  SELECT * FROM data.dipendenti WHERE sposato;
 
-	SELECT * FROM data.view_dipendenti_sposati;
+	SELECT * FROM data.view_dipendenti_sposato;
 
 ### Crea una tabella da una query
 
 	CREATE TABLE data.tabella_dipendenti_sposati AS
-	  SELECT * FROM data.dipendenti WHERE sposati;
+	  SELECT * FROM data.dipendenti WHERE sposato;
 
-	SELECT * FROM data.view_dipendenti_sposati;
+	SELECT * FROM data.view_dipendenti_sposato;
 
 <br>
 
@@ -566,7 +566,7 @@ Calcolare il numero medio di caramelle  mangiate da ogni dipendente e il numero 
 	  avg(num_caramelle) AS medio,  
 	  sum(num_caramelle) AS totale
 	FROM 
-	  data.dipendenti_caramelle
+	  data.caramelle_dipendenti
 	GROUP BY 
 	  dipendente_id
 	ORDER by totale DESC;
@@ -767,7 +767,18 @@ Stesso problema dell'esempio precedente
 	SELECT now()::date - '1-1-2015'::date;
 	
 	SELECT now() - '1-1-2015'::timestamp;
+	
+* Esercizio
 
+Calcolare quanti anno hanno i dipendenti adesso
+
+	SELECT 
+	  now() - data_nascita opzione1,
+	  (now()::date - data_nascita) opzione2,
+	  (now()::date - data_nascita)/365.0 opzione3, 
+	  extract(epoch from (now() - data_nascita))/60/60/24/365 opzione4,
+	  floor(extract(epoch from (now() - data_nascita))/60/60/24/365) opzione5
+	FROM data.dipendenti;
 
 ### Ricerca su tipi di dato testo
 
@@ -797,7 +808,6 @@ Il campo "settore" potrebbe essere rappresentato da un codice che fa riferimento
 
 ### Funzioni window
 
-
 * Esempi
 
 Vedere per ogni dipendente se il peso è maggiore o minore del peso dei dipendenti della stessa azienda e la classifica per ogni azienda
@@ -820,7 +830,58 @@ Vedere per ogni dipendente se il peso è maggiore o minore del peso dei dipenden
 	2. Calcolare la percentuale del peso di ogni dipendente sul totale dei dipendenti della sua azienda
 	3. Calcolare la percentuale di caramelle mangiate da ogni dipendente sul totale delle caramelle mangiate dai dipendenti della stessa azienda
 
-* Tablefunc
+### Partitioned table
+
+	CREATE TABLE data.ordini (numero_ordine int,  data_ordine date not null, dipendente_id integer);
+	
+	CREATE TABLE data.ordini_2014 ( CHECK (data_ordine >= '2014-01-01' and data_ordine <= '2014-12-31') ) INHERITS (data.ordini);
+	CREATE TABLE data.ordini_2015 ( CHECK (data_ordine >= '2015-01-01' and data_ordine <= '2015-12-31') ) INHERITS (data.ordini);
+	CREATE TABLE data.ordini_2016 ( CHECK (data_ordine >= '2016-01-01' and data_ordine <= '2016-12-31') ) INHERITS (data.ordini);
+	
+	ALTER TABLE data.ordini_2014  ADD CONSTRAINT ordini_2014_pkey PRIMARY KEY(numero_ordine);
+	ALTER TABLE data.ordini_2015  ADD CONSTRAINT ordini_2015_pkey PRIMARY KEY(numero_ordine);
+	ALTER TABLE data.ordini_2016  ADD CONSTRAINT ordini_2016_pkey PRIMARY KEY(numero_ordine);
+	
+	CREATE INDEX i_ordini_2014 ON data.ordini_2014 (data_ordine);
+	CREATE INDEX i_ordini_2015 ON data.ordini_2015 (data_ordine);
+	CREATE INDEX i_ordini_2016 ON data.ordini_2016 (data_ordine);
+	
+	CREATE OR REPLACE FUNCTION data.inserimento_ordini_partitioning()
+	RETURNS TRIGGER AS $$
+	BEGIN
+	    IF 
+	        (NEW.data_ordine >= DATE '01-01-2014' AND
+	         NEW.data_ordine <= DATE '31-12-2014') THEN
+	        INSERT INTO data.ordini_2014 VALUES (NEW.*);
+	    ELSIF 
+	        (NEW.data_ordine >= DATE '01-01-2015' AND
+	         NEW.data_ordine <= DATE '31-12-2015' ) THEN
+	        INSERT INTO data.ordini_2015 VALUES (NEW.*);
+	    ELSIF 
+	        (NEW.data_ordine >= DATE '01-01-2016' AND
+	         NEW.data_ordine <= DATE '31-12-2016' ) THEN
+	        INSERT INTO data.ordini_2016 VALUES (NEW.*);
+	    ELSE
+	        RAISE EXCEPTION 'Data non valida!';
+	    END IF;
+	    RETURN NULL;
+	END;
+	$$
+	LANGUAGE plpgsql;
+	
+	
+	CREATE TRIGGER inserimento_ordini_trigger
+	    BEFORE INSERT ON data.ordini
+	    FOR EACH ROW EXECUTE PROCEDURE data.inserimento_ordini_partitioning();
+	
+	insert into data.ordini(numero_ordine, data_ordine, dipendente_id) values(1, '21-4-2016', 1);
+	
+	insert into data.ordini(numero_ordine, data_ordine, dipendente_id) SELECT generate_series(2,100,1), '1-1-2014'::date + ((random()*365*3)::integer), ceiling(random()*13) 
+	
+	SELECT * FROM data.ordini WHERE data_ordine > '1-6-2016';
+	SELECT * FROM data.ordini WHERE dipendente_id = 3;
+
+### Tablefunc
 
 Visualizzare i dati da vettori a matrice (12 colonne, una con ogni mese) per tutti i dipendnti con numero totale di caramelle mangiate.
 
@@ -847,7 +908,7 @@ Visualizzare i dati da vettori a matrice (12 colonne, una con ogni mese) per tut
 	    ''mon_'' ||extract(month from data) AS mese, 
 	    sum(num_caramelle) AS caramelle
 	  FROM 
-	    data.dipendenti_caramelle
+	    data.caramelle_dipendenti
 	  GROUP BY
 	    dipendente_id, mese
 	  ORDER BY 
@@ -858,7 +919,7 @@ Visualizzare i dati da vettori a matrice (12 colonne, una con ogni mese) per tut
 
 <br>
 
-## MODULO 9 (15:30-17:00; 25 Maggio): Strumenti di sviluppo del database (opzionale)
+## MODULO 9 (15:30-17:30; 25 Maggio): Strumenti di sviluppo del database (opzionale)
 
 ### Stored procedures
 
@@ -875,6 +936,48 @@ Una funzione è un codiceche viene implementato all'interno del database utilizz
 	  RETURNS NULL ON NULL INPUT;
 
 	SELECT tools.test_add(28,13);
+	
+**Funzione che calcola l'età in anni compiuti a partire da 2 date**
+
+	CREATE OR REPLACE FUNCTION data.eta(
+	    data_nascita date,
+	    data_attuale date)
+	  RETURNS integer AS
+	$BODY$
+	
+	DECLARE
+	eta_anni integer;
+	
+	BEGIN
+	
+	eta_anni =  ($2 - $1)/365;
+	
+	if eta_anni > 120 then
+	RAISE EXCEPTION 'Non ti sembra troppo vecchio? Controlla le date!';
+	return NULL;
+	end if;
+	
+	if eta_anni < 0 then
+	RAISE EXCEPTION 'Questa è la generazione del futuro...';
+	return NULL;
+	end if;
+	
+	return eta_anni;
+	END;
+	$BODY$
+	  LANGUAGE plpgsql
+	  COST 100;
+	
+Verifico il risultato:
+
+	SELECT data.eta('30/5/1974', now()::date);
+	
+	SELECT data.eta('30/5/1874', now()::date);
+	
+	SELECT data.eta('30/5/1974', '1/1/2020');
+	
+* Esercizio
+...
 
 ### Trigger e funzioni trigger
 
@@ -898,21 +1001,8 @@ Un trigger fa si che il database esegua automaticamente una particolare funzione
 	  FOR EACH ROW
 	  EXECUTE PROCEDURE tools.timestamp_last_update();
 
-<br>
-
-## MODULO 10 (17:00-17:30; 25 Maggio): Uso avanzato del database (opzionale)
-
-### Tipi di dato spaziale
-* PostGIS
-
-### Altri tipi di dato
-* Array, immagini
-
-### Connettersi al database con altri client
-* phpPgAdmin, Excel, Access, LibreOffice, R
-
-### Altri linguaggi procedurali
-* Pl/pgsql, Pl/R
+* Esercizio
+Aggiornare la funzione in modo da scrivere in un campo il nome di chi ha fatto l'ultima modifica al campo
 
 <br>
 
