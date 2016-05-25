@@ -977,6 +977,7 @@ Verifico il risultato:
 	SELECT data.eta('30/5/1974', '1/1/2020');
 	
 * Esercizio
+
 Scrivere una funzione che dato l'identificativo di un dipendente dice se il peso del dipendente è maggiore del peso medio dei dipendenti della sua stessa azienda
 
 ...
