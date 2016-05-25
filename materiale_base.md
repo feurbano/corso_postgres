@@ -1,16 +1,13 @@
-# MATERIALE CORSO "Introduzione a PostgreSQL" 
+# MATERIALE CORSO "Introduzione ai database con PostgreSQL" 
 --------
-##### DOCENTI: *Ferdinando Urbano, Lorenzo de Ambrosis*
-##### DATA: *24-25-26 Maggio 2016*
-##### PRESSO: *HP TRAINING CENTER* 
-
+##### Autore: *Ferdinando Urbano*
 <br>
 <br>
 
-## INTRODUZIONE AL CORSO (09:00-9:30; 24 Maggio)
+## INTRODUZIONE AL CORSO (0.5 ore)
 
 
-### Presentazione dei docenti
+### Presentazione del docente
 ### Presentazione partecipanti 
 * Conoscenze pregresse, obiettivi di apprendimento
 
@@ -21,7 +18,7 @@
 
 <br>
 
-## MODULO 1 (09:30-10:00; 24 Maggio): Introduzione a PostgreSQL
+## MODULO 1 (1.5 ore): Introduzione a PostgreSQL
 
 ### Cos'è PostgreSQL
 * PostgreSQL è un sistema avanzato di gestione di basi di dati (Database Management System, DBMS)
@@ -103,7 +100,7 @@ SQL è l'acronimo di Structured Query Language ed è il linguaggio di definizion
 
 <br>
 
-## MODULO 2 (10:00-11:30; 24 Maggio): Primi passi con PostgreSQL
+## MODULO 2 (1.5 ore): Primi passi con PostgreSQL
 
 ### Installare PostgreSQL
 
@@ -179,7 +176,7 @@ Un servizio di noleggio di DVD deve creare un database con l'elenco dei film col
 
 <br>
 
-## MODULO 3 (11:30-13:00; 24 Maggio): Costruire un database
+## MODULO 3 (1.5 ore): Costruire un database
 
 ### Creare uno schema
 * Con PgAdmin
@@ -316,7 +313,7 @@ Soluzione:
 
 <br>
 
-## MODULO 4 (14:00-16:30; 24 Maggio): SQL base 
+## MODULO 4 (1.5 ore): SQL base 
 
 ### Principali comandi: SELECT, FROM, WHERE
 * Esempi
@@ -471,7 +468,7 @@ Visualizzare tutti i nomi di società dalla tabella **data.dipendenti**.
 
 <br>
 
-## MODULO 5 (16:30-17:30; 24 Maggio): Estendere il database
+## MODULO 5 (1 ora): Estendere il database
 
 ### Uso di indici
 
@@ -523,7 +520,7 @@ Creare una chiave esterna per il campo dipendenti_id della tabella data.caramell
 
 <br>
 
-## MODULO 6 (09:00-11:30; 25 Maggio): SQL intermedio - 1
+## MODULO 6 (2.5 ore): SQL intermedio - 1
 
 ### Interrogare più tabelle: JOIN
 
@@ -642,7 +639,7 @@ Calcolare il peso medio dei dipendenti di ogni società ma solo per le società 
 
 <br>
 
-## MODULO 7 (11:30-13:00; 25 Maggio): SQL intermedio - 2
+## MODULO 7 (1.5 ore): SQL intermedio - 2
 
 ### Sub-query
 * Esempi
@@ -804,7 +801,7 @@ Il campo "settore" potrebbe essere rappresentato da un codice che fa riferimento
 
 <br>
 
-## MODULO 8 (14:00-15:30; 25 Maggio): SQL avanzato
+## MODULO 8 (1.5 ore): SQL avanzato
 
 ### Funzioni window
 
@@ -829,6 +826,140 @@ Vedere per ogni dipendente se il peso è maggiore o minore del peso dei dipenden
 	1. Fare la classifica dal più pesante al meno pesante dei dipendenti sposati e non sposati
 	2. Calcolare la percentuale del peso di ogni dipendente sul totale dei dipendenti della sua azienda
 	3. Calcolare la percentuale di caramelle mangiate da ogni dipendente sul totale delle caramelle mangiate dai dipendenti della stessa azienda
+
+### Tablefunc
+
+Visualizzare i dati da vettori a matrice (12 colonne, una con ogni mese) per tutti i dipendnti con numero totale di caramelle mangiate.
+
+	CREATE EXTENSION tablefunc;
+ 
+	SELECT 
+	  dipendente_id,
+	  crosstab.mon_1,
+	  crosstab.mon_2,
+	  crosstab.mon_3,
+	  crosstab.mon_4,
+	  crosstab.mon_5,
+	  crosstab.mon_6,
+	  crosstab.mon_7,
+	  crosstab.mon_8,
+	  crosstab.mon_9,
+	  crosstab.mon_10,
+	  crosstab.mon_11,
+	  crosstab.mon_12
+	FROM 
+	  crosstab(
+	  'SELECT 
+	    dipendente_id, 
+	    ''mon_'' ||extract(month from data) AS mese, 
+	    sum(num_caramelle) AS caramelle
+	  FROM 
+	    data.caramelle_dipendenti
+	  GROUP BY
+	    dipendente_id, mese
+	  ORDER BY 
+	    dipendente_id, mese'::text, 'SELECT ''mon_'' || a from generate_series(1,12,1) a'::text) crosstab(dipendente_id integer, 
+		mon_1 integer, mon_2 integer, mon_3 integer, mon_4 integer, mon_5 integer, mon_6 integer, mon_7 integer, mon_8 integer, 
+		mon_9 integer, mon_10 integer, mon_11 integer, mon_12 integer);
+
+
+<br>
+
+## MODULO 9 (2.5 ore): Strumenti di sviluppo del database 
+
+### Stored procedures
+
+Una funzione è un codiceche viene implementato all'interno del database utilizzando SQL o un altro linguaggio (ad esempio PSQL, Python, C). Le funzioni consentono di creare processi complessi e algoritmi che  SQL da solo non può fare. Una volta creata, una funzione diventa parte della libreria dei comandi del database e può essere chiamata all'interno di una query SQL.
+
+	CREATE SCHEMA tools;
+	
+	COMMENT ON SCHEMA tools 
+	  IS 'Schema che contiene tutte le funzioni e i vari strumenti.';
+
+	CREATE FUNCTION data.test_add(integer, integer) 
+	  RETURNS integer AS 'SELECT $1 + $2;'
+	  LANGUAGE SQL
+	  RETURNS NULL ON NULL INPUT;
+
+	SELECT data.test_add(28,13);
+	
+**Funzione che calcola l'età in anni compiuti a partire da 2 date**
+
+	CREATE OR REPLACE FUNCTION data.eta(
+	    data_nascita date,
+	    data_attuale date)
+	  RETURNS integer AS
+	$BODY$
+	
+	DECLARE
+	eta_anni integer;
+	
+	BEGIN
+	
+	eta_anni =  ($2 - $1)/365;
+	
+	if eta_anni > 120 then
+	RAISE EXCEPTION 'Non ti sembra troppo vecchio? Controlla le date!';
+	return NULL;
+	end if;
+	
+	if eta_anni < 0 then
+	RAISE EXCEPTION 'Questa è la generazione del futuro...';
+	return NULL;
+	end if;
+	
+	return eta_anni;
+	END;
+	$BODY$
+	  LANGUAGE plpgsql
+	  COST 100;
+	
+Verifico il risultato:
+
+	SELECT data.eta('30/5/1974', now()::date);
+	
+	SELECT data.eta('30/5/1874', now()::date);
+	
+	SELECT data.eta('30/5/1974', '1/1/2020');
+	
+* Esercizio
+
+Scrivere una funzione che dato l'identificativo di un dipendente dice se il peso del dipendente è maggiore del peso medio dei dipendenti della sua stessa azienda
+
+	CREATE OR REPLACE FUNCTION data.oversize(integer)
+	  RETURNS boolean AS
+	'SELECT xx FROM (SELECT dipendente_id, (peso > (avg(peso) over(partition by societa_nome))) xx FROM data.dipendenti) a WHERE dipendente_id = $1 ;'
+	  LANGUAGE sql VOLATILE STRICT
+	  COST 100;
+	ALTER FUNCTION data.oversize(integer)
+	  OWNER TO postgres;
+	
+	SELECT data.oversize(dipendente_id), nome, cognome FROM data.dipendenti
+
+### Trigger
+
+Un trigger fa si che il database esegua automaticamente una particolare funzione ogni volta che viene eseguito un certo tipo di operazione su una tabella.
+
+	ALTER TABLE data.dipendenti 
+	  ADD COLUMN update_timestamp timestamp with time zone DEFAULT now();
+
+	CREATE OR REPLACE FUNCTION data.timestamp_last_update()
+	  RETURNS trigger AS
+	  $BODY$BEGIN
+	    IF NEW IS DISTINCT FROM OLD THEN
+	      NEW.update_timestamp = now();
+	    END IF;
+	  RETURN NEW;
+	  END;$BODY$;
+
+	CREATE TRIGGER update_timestamp
+	  BEFORE UPDATE
+	  ON main.data.dipendenti
+	  FOR EACH ROW
+	  EXECUTE PROCEDURE data.timestamp_last_update();
+
+* Esercizio
+Aggiornare la funzione in modo da scrivere in un campo il nome di chi ha fatto l'ultima modifica al campo
 
 ### Partitioned table
 
@@ -876,139 +1007,14 @@ Vedere per ogni dipendente se il peso è maggiore o minore del peso dei dipenden
 	
 	insert into data.ordini(numero_ordine, data_ordine, dipendente_id) values(1, '21-4-2016', 1);
 	
-	insert into data.ordini(numero_ordine, data_ordine, dipendente_id) SELECT generate_series(2,100,1), '1-1-2014'::date + ((random()*365*3)::integer), ceiling(random()*13) 
+	insert into data.ordini(numero_ordine, data_ordine, dipendente_id) SELECT generate_series(2,100,1), '1-1-2014'::date + ((random()*365*3)::integer), ceiling(random() * 13) 
 	
 	SELECT * FROM data.ordini WHERE data_ordine > '1-6-2016';
 	SELECT * FROM data.ordini WHERE dipendente_id = 3;
 
-### Tablefunc
-
-Visualizzare i dati da vettori a matrice (12 colonne, una con ogni mese) per tutti i dipendnti con numero totale di caramelle mangiate.
-
-	CREATE EXTENSION tablefunc;
- 
-	SELECT 
-	  dipendente_id,
-	  crosstab.mon_1,
-	  crosstab.mon_2,
-	  crosstab.mon_3,
-	  crosstab.mon_4,
-	  crosstab.mon_5,
-	  crosstab.mon_6,
-	  crosstab.mon_7,
-	  crosstab.mon_8,
-	  crosstab.mon_9,
-	  crosstab.mon_10,
-	  crosstab.mon_11,
-	  crosstab.mon_12
-	FROM 
-	  crosstab(
-	  'SELECT 
-	    dipendente_id, 
-	    ''mon_'' ||extract(month from data) AS mese, 
-	    sum(num_caramelle) AS caramelle
-	  FROM 
-	    data.caramelle_dipendenti
-	  GROUP BY
-	    dipendente_id, mese
-	  ORDER BY 
-	    dipendente_id, mese'::text, 'SELECT ''mon_'' || a from generate_series(1,12,1) a'::text) crosstab(dipendente_id integer, 
-		mon_1 integer, mon_2 integer, mon_3 integer, mon_4 integer, mon_5 integer, mon_6 integer, mon_7 integer, mon_8 integer, 
-		mon_9 integer, mon_10 integer, mon_11 integer, mon_12 integer);
-
-
-<br>
-
-## MODULO 9 (15:30-17:30; 25 Maggio): Strumenti di sviluppo del database (opzionale)
-
-### Stored procedures
-
-Una funzione è un codiceche viene implementato all'interno del database utilizzando SQL o un altro linguaggio (ad esempio PSQL, Python, C). Le funzioni consentono di creare processi complessi e algoritmi che  SQL da solo non può fare. Una volta creata, una funzione diventa parte della libreria dei comandi del database e può essere chiamata all'interno di una query SQL.
-
-	CREATE SCHEMA tools;
-	
-	COMMENT ON SCHEMA tools 
-	  IS 'Schema che contiene tutte le funzioni e i vari strumenti.';
-
-	CREATE FUNCTION tools.test_add(integer, integer) 
-	  RETURNS integer AS 'SELECT $1 + $2;'
-	  LANGUAGE SQL
-	  RETURNS NULL ON NULL INPUT;
-
-	SELECT tools.test_add(28,13);
-	
-**Funzione che calcola l'età in anni compiuti a partire da 2 date**
-
-	CREATE OR REPLACE FUNCTION data.eta(
-	    data_nascita date,
-	    data_attuale date)
-	  RETURNS integer AS
-	$BODY$
-	
-	DECLARE
-	eta_anni integer;
-	
-	BEGIN
-	
-	eta_anni =  ($2 - $1)/365;
-	
-	if eta_anni > 120 then
-	RAISE EXCEPTION 'Non ti sembra troppo vecchio? Controlla le date!';
-	return NULL;
-	end if;
-	
-	if eta_anni < 0 then
-	RAISE EXCEPTION 'Questa è la generazione del futuro...';
-	return NULL;
-	end if;
-	
-	return eta_anni;
-	END;
-	$BODY$
-	  LANGUAGE plpgsql
-	  COST 100;
-	
-Verifico il risultato:
-
-	SELECT data.eta('30/5/1974', now()::date);
-	
-	SELECT data.eta('30/5/1874', now()::date);
-	
-	SELECT data.eta('30/5/1974', '1/1/2020');
-	
-* Esercizio
-
-Scrivere una funzione che dato l'identificativo di un dipendente dice se il peso del dipendente è maggiore del peso medio dei dipendenti della sua stessa azienda
-
-...
-
-### Trigger e funzioni trigger
-
-Un trigger fa si che il database esegua automaticamente una particolare funzione ogni volta che viene eseguito un certo tipo di operazione su una tabella.
-
-	ALTER TABLE data.dipendenti 
-	  ADD COLUMN update_timestamp timestamp with time zone DEFAULT now();
-
-	CREATE OR REPLACE FUNCTION tools.timestamp_last_update()
-	  RETURNS trigger AS
-	  $BODY$BEGIN
-	    IF NEW IS DISTINCT FROM OLD THEN
-	      NEW.update_timestamp = now();
-	    END IF;
-	  RETURN NEW;
-	  END;$BODY$;
-
-	CREATE TRIGGER update_timestamp
-	  BEFORE UPDATE
-	  ON main.data.dipendenti
-	  FOR EACH ROW
-	  EXECUTE PROCEDURE tools.timestamp_last_update();
-
-* Esercizio
-Aggiornare la funzione in modo da scrivere in un campo il nome di chi ha fatto l'ultima modifica al campo
-
 ### External tables
-	
+
+*Per funzionare con questa sintassi, deve fare riferimento a un'altra tabella nello stesso database server (locale)*
 	create extension postgres_fdw;
 	
 	CREATE SERVER foreign_server
@@ -1028,7 +1034,7 @@ Aggiornare la funzione in modo da scrivere in un campo il nome di chi ha fatto l
 
 <br>
 
-## AMMINISTRAZIONE DEL DATABASE (09:00-15:30; 26 Maggio)
+## AMMINISTRAZIONE DEL DATABASE (4 ore)
 
 ### Interagire con il database da riga di comando: psql
 ### Gestione degli utenti e dei permessi
@@ -1036,7 +1042,9 @@ Aggiornare la funzione in modo da scrivere in un campo il nome di chi ha fatto l
 ### Otimizzazione database
 ### Backup e ripristino
 ### VACUMM
-### Verificare dimensione di un database, schema, tabella
+### Verificare dimensione di database, schemi, tabelle
 ### Otimizzazione delle query
 ### Tablespace
+### Tabelle di sistema
+### PostGIS
 ### Esercizio di ricapitolazione finale
