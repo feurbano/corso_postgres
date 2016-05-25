@@ -1,5 +1,4 @@
-# Materiale del corso
-# INTRODUZIONE AI DATABASE CON POSTGRESQL 
+# Materiale del corso: <br> INTRODUZIONE AI DATABASE CON POSTGRESQL 
 --------
 ##### Autore: *Ferdinando Urbano*
 <br>
